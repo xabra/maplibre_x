@@ -1,5 +1,6 @@
 // Define the map syle (OpenStreetMap raster tiles)
-const MAX_POINTS = 3000;
+const MAX_POINTS = 30000;
+const MARKER_CIRRCLE_RADIUS = 3;
 const map_style = {
     "version": 8,
     "sources": {
@@ -27,81 +28,82 @@ var map = new maplibregl.Map({
     zoom: 8 // starting zoom
 });
 
-const geoj = {
-    "type": "GeometryCollection",
-    "geometries": [{
-        "type": "Point",
-        "coordinates": [-121.9386, 37.4056]
-    }, {
-        "type": "Point",
-        "coordinates": [-121.93, 37.4056]
-    }, {
-        "type": "Point",
-        "coordinates": [-121.94, 37.4056]
-    },
-    ]
-};
-// CORS problem here...
-// fetch('http://127.0.0.1:3000/api/stations')
-//     .then((response) => response.json())
-//     .then((json) => console.log(json));
+
 
 map.on('load', () => {
-    fetch('./stations.json')
+    fetch('./stations.json')        // CORS PROBLEM with this: fetch('http://127.0.0.1:3000/api/stations')
         .then((response) => response.json())
         .then((stations) => {
-            const marker = [];
-            add_station_markers(stations, marker);
-
-            //Add a source and layer displaying a point which will be animated in a circle.
+            const geo = build_geojson_stations(stations)
+            console.log("Number of stations: ", geo.geometries.length)
+            //Add a data source
             map.addSource('stations_data', {
                 'type': 'geojson',
-                'data': geoj,
+                'data': geo,
             });
 
-            //var res = build_geojson_stations(stations);
+            // Add layer to display data
             map.addLayer({
                 'id': 'stations_layer',      // 'point' layer
                 'source': 'stations_data',
                 'type': 'circle',
                 'paint': {
-                    'circle-radius': 5,
-                    'circle-color': '#ff6347',
+                    'circle-radius': MARKER_CIRRCLE_RADIUS,
+                    'circle-color': '#FF0000',
                 }
             });
         });
 });
 
-
-function add_station_markers(stations, marker) {
+function build_geojson_stations(stations) {
+    geojson_geometries = [];
     var index = 0;
     for (const station of stations) {
         //console.log(">>>", index, station.station_name, station.longitude, station.latitude, station.station_id);
-        if (station.station_id.substring(0, 2) == 'US' && index < MAX_POINTS) {
-            marker[index] = new maplibregl.Marker({ color: "#FF0000", scale: 0.25 })
-                .setLngLat([station.longitude, station.latitude])
-                .addTo(map);
+        if (index < MAX_POINTS) {       //snip-- && station.station_id.substring(0, 2) == 'US' 
+            geojson_geometries.push({
+                type: "Point",
+                coordinates: [station.longitude, station.latitude]
+            });
             index += 1;
         }
 
     }
+    // Embed the geometry array in the geojson header
+    const geojson_obj = {
+        type: "GeometryCollection",
+        geometries: geojson_geometries,
+    }
+    return geojson_obj;
 }
 
-
-// function build_geojson_stations(stations) {
-//     geojson_geometries = [];
+// ============  OBSOLETE SNIPPETS
+// function add_station_markers(stations, marker) {
 //     var index = 0;
 //     for (const station of stations) {
 //         //console.log(">>>", index, station.station_name, station.longitude, station.latitude, station.station_id);
-//         if (station.station_id.substring(0, 2) == 'US' && index < 100) {
-//             geojson_geometries.push({
-//                 type: "Point",
-//                 coordinates: [station.longitude, station.latitude]
-//             });
+//         if (station.station_id.substring(0, 2) == 'US' && index < MAX_POINTS) {
+//             marker[index] = new maplibregl.Marker({ color: "#FF0000", scale: 0.25 })
+//                 .setLngLat([station.longitude, station.latitude])
+//                 .addTo(map);
 //             index += 1;
 //         }
 
 //     }
-//     console.log(geojson_geometries);
-//     return 3.14;
 // }
+
+// Test geometry data:
+// const geoj = {
+//     "type": "GeometryCollection",
+//     "geometries": [{
+//         "type": "Point",
+//         "coordinates": [-121.9386, 37.4056]
+//     }, {
+//         "type": "Point",
+//         "coordinates": [-121.93, 37.4056]
+//     }, {
+//         "type": "Point",
+//         "coordinates": [-121.94, 37.4056]
+//     },
+//     ]
+// };
