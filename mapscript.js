@@ -35,7 +35,7 @@ map.on('load', () => {
         .then((response) => response.json())
         .then((stations) => {
             const geo = build_geojson_stations(stations)
-            console.log("Number of stations: ", geo.geometries.length)
+            console.log("Number of stations: ", geo.features.length)
             //Add a data source
             map.addSource('stations_data', {
                 'type': 'geojson',
@@ -55,24 +55,62 @@ map.on('load', () => {
         });
 });
 
+// When a click event occurs on a feature in the places layer, open a popup at the
+// location of the feature, with description HTML from its properties.
+map.on('click', 'stations_layer', (e) => {
+    const coordinates = e.features[0].geometry.coordinates.slice();
+    const station_name = e.features[0].properties.station_name;
+
+    // Ensure that if the map is zoomed out such that multiple
+    // copies of the feature are visible, the popup appears
+    // over the copy being pointed to.
+    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    }
+
+    new maplibregl.Popup()
+        .setLngLat(coordinates)
+        .setHTML(station_name)
+        .addTo(map);
+});
+
+// Change the cursor to a pointer when the mouse is over the places layer.
+map.on('mouseenter', 'stations_layer', () => {
+    map.getCanvas().style.cursor = 'pointer';
+});
+
+// Change it back to a pointer when it leaves.
+map.on('mouseleave', 'stations_layer', () => {
+    map.getCanvas().style.cursor = '';
+});
+
 function build_geojson_stations(stations) {
-    geojson_geometries = [];
+    geojson_array = [];
     var index = 0;
     for (const station of stations) {
         //console.log(">>>", index, station.station_name, station.longitude, station.latitude, station.station_id);
         if (index < MAX_POINTS) {       //snip-- && station.station_id.substring(0, 2) == 'US' 
-            geojson_geometries.push({
-                type: "Point",
-                coordinates: [station.longitude, station.latitude]
-            });
+            geojson_array.push(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        type: "Point",
+                        coordinates: [station.longitude, station.latitude]
+                    },
+                    "properties": {
+                        station_name: station.station_name,
+                        station_id: station.station_id
+                    }
+                }
+            );
             index += 1;
         }
 
     }
     // Embed the geometry array in the geojson header
     const geojson_obj = {
-        type: "GeometryCollection",
-        geometries: geojson_geometries,
+        type: "FeatureCollection",
+        features: geojson_array,
     }
     return geojson_obj;
 }
