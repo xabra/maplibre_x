@@ -1,6 +1,6 @@
 // Define the map syle (OpenStreetMap raster tiles)
-const MAX_POINTS = 30000;
-const MARKER_CIRRCLE_RADIUS = 3;
+const MAX_POINTS = 3000;
+const MARKER_CIRCLE_RADIUS = 4;
 const map_style = {
     "version": 8,
     "sources": {
@@ -48,30 +48,53 @@ map.on('load', () => {
                 'source': 'stations_data',
                 'type': 'circle',
                 'paint': {
-                    'circle-radius': MARKER_CIRRCLE_RADIUS,
-                    'circle-color': '#FF0000',
+                    'circle-radius': MARKER_CIRCLE_RADIUS,
+                    'circle-color': [
+                        'match',
+                        ['to-string', ["get", "is_selected"]],
+                        'true',
+                        '#FF0000',
+                        'false',
+                        '#0000FF',
+                        '#000000'
+                    ]
                 }
             });
         });
 });
 
+
+//                        ['boolean', ['properties', 'is_selected'], false],
+
 // When a click event occurs on a feature in the places layer, open a popup at the
 // location of the feature, with description HTML from its properties.
 map.on('click', 'stations_layer', (e) => {
-    const coordinates = e.features[0].geometry.coordinates.slice();
-    const station_name = e.features[0].properties.station_name;
+    let feature = e.features[0];
+    const coordinates = feature.geometry.coordinates.slice();
+    const station_name = feature.properties.station_name;
+    const id = feature.id;
+    const station_id = feature.properties.station_id;
+    console.log("Found ID: ", id);
+    map.getSource('stations_data').getData()
+        .then((geojson_data) => {
+            let feature = geojson_data.features[id];
+            const new_is_selected = !feature.properties.is_selected;
+            feature.properties.is_selected = new_is_selected; // Toggle selected state
+            console.log("New is_selected state: ", new_is_selected);
+            map.getSource('stations_data').setData(geojson_data);   // Write the updated data
+
+            new maplibregl.Popup()
+                .setLngLat(coordinates)
+                .setHTML('<p>Station: ' + station_name + '</p><p>ID: ' + station_id + "</p><p>Selected: " + new_is_selected + '</p>')
+                .addTo(map);
+        });
 
     // Ensure that if the map is zoomed out such that multiple
     // copies of the feature are visible, the popup appears
     // over the copy being pointed to.
-    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-    }
-
-    new maplibregl.Popup()
-        .setLngLat(coordinates)
-        .setHTML(station_name)
-        .addTo(map);
+    // while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+    //     coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    // }
 });
 
 // Change the cursor to a pointer when the mouse is over the places layer.
@@ -88,7 +111,7 @@ function build_geojson_stations(stations) {
     geojson_array = [];
     var index = 0;
     for (const station of stations) {
-        //console.log(">>>", index, station.station_name, station.longitude, station.latitude, station.station_id);
+        //console.log(">>>", index, station.station_name, station.longitude, station.latitude, station.station_id, typeof station.station_id);
         if (index < MAX_POINTS) {       //snip-- && station.station_id.substring(0, 2) == 'US' 
             geojson_array.push(
                 {
@@ -97,9 +120,11 @@ function build_geojson_stations(stations) {
                         type: "Point",
                         coordinates: [station.longitude, station.latitude]
                     },
+                    "id": index,    // Must be a number, not alphanumeric
                     "properties": {
                         station_name: station.station_name,
-                        station_id: station.station_id
+                        is_selected: false,
+                        station_id: station.station_id,
                     }
                 }
             );
@@ -115,33 +140,3 @@ function build_geojson_stations(stations) {
     return geojson_obj;
 }
 
-// ============  OBSOLETE SNIPPETS
-// function add_station_markers(stations, marker) {
-//     var index = 0;
-//     for (const station of stations) {
-//         //console.log(">>>", index, station.station_name, station.longitude, station.latitude, station.station_id);
-//         if (station.station_id.substring(0, 2) == 'US' && index < MAX_POINTS) {
-//             marker[index] = new maplibregl.Marker({ color: "#FF0000", scale: 0.25 })
-//                 .setLngLat([station.longitude, station.latitude])
-//                 .addTo(map);
-//             index += 1;
-//         }
-
-//     }
-// }
-
-// Test geometry data:
-// const geoj = {
-//     "type": "GeometryCollection",
-//     "geometries": [{
-//         "type": "Point",
-//         "coordinates": [-121.9386, 37.4056]
-//     }, {
-//         "type": "Point",
-//         "coordinates": [-121.93, 37.4056]
-//     }, {
-//         "type": "Point",
-//         "coordinates": [-121.94, 37.4056]
-//     },
-//     ]
-// };
