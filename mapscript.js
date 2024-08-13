@@ -1,5 +1,5 @@
 // Define the map syle (OpenStreetMap raster tiles)
-const MAX_POINTS = 3000;
+const MAX_POINTS = 30000;
 const MARKER_CIRCLE_RADIUS = 4;
 const map_style = {
     "version": 8,
@@ -49,24 +49,21 @@ map.on('load', () => {
                 'type': 'circle',
                 'paint': {
                     'circle-radius': MARKER_CIRCLE_RADIUS,
-                    'circle-color': [
+                    'circle-color': [   // Color the circle based on is_selected state
                         'match',
                         ['to-string', ["get", "is_selected"]],
                         'true',
-                        '#FF0000',
+                        '#FF0000',  // is_selected = true
                         'false',
-                        '#0000FF',
-                        '#000000'
+                        '#0000FF',  // is_selected = false
+                        '#000000'   // otherwise, use fallback
                     ]
                 }
             });
         });
 });
 
-
-//                        ['boolean', ['properties', 'is_selected'], false],
-
-// When a click event occurs on a feature in the places layer, open a popup at the
+// When a click event occurs on a feature in the layer, open a popup at the
 // location of the feature, with description HTML from its properties.
 map.on('click', 'stations_layer', (e) => {
     let feature = e.features[0];
@@ -83,18 +80,21 @@ map.on('click', 'stations_layer', (e) => {
             console.log("New is_selected state: ", new_is_selected);
             map.getSource('stations_data').setData(geojson_data);   // Write the updated data
 
+            // --- SHOW POPUP ---
+            // Ensure that if the map is zoomed out such that multiple
+            // copies of the feature are visible, the popup appears
+            // over the copy being pointed to.
+            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
             new maplibregl.Popup()
                 .setLngLat(coordinates)
-                .setHTML('<p>Station: ' + station_name + '</p><p>ID: ' + station_id + "</p><p>Selected: " + new_is_selected + '</p>')
+                .setHTML(
+                    `<pre><strong>Station:</strong> ${station_name}\n<strong>ID:</strong> ${station_id}\n<strong>Selected:</strong> ${new_is_selected}</pre>`)
                 .addTo(map);
         });
 
-    // Ensure that if the map is zoomed out such that multiple
-    // copies of the feature are visible, the popup appears
-    // over the copy being pointed to.
-    // while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-    //     coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-    // }
+
 });
 
 // Change the cursor to a pointer when the mouse is over the places layer.
