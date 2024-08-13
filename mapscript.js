@@ -35,8 +35,8 @@ const popup = new maplibregl.Popup({
 });
 
 map.on('load', () => {
-    fetch('./stations.json')
-        //fetch('http://127.0.0.1:3000/api/stations') // CORS PROBLEM with this
+    // fetch('./stations.json')
+    fetch('http://127.0.0.1:3000/api/stations') // CORS PROBLEM with this
         .then((response) => response.json())
         .then((stations) => {
             const geo = build_geojson_stations(stations)
